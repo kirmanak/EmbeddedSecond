@@ -23,7 +23,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include<string.h>
+#include "solution.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -33,21 +33,6 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define GREEN GPIO_PIN_13
-#define YELLOW GPIO_PIN_14
-#define RED GPIO_PIN_15
-#define BUTTON GPIO_PIN_15
-
-#define GREEN_STATE 0
-#define GREEN_BLINK_STATE 1
-#define YELLOW_STATE 2
-#define RED_STATE 3
-
-#define EOL "\n\r"
-#define DELAY 1000
-#define DEFAULT_TIMEOUT 3000
-
-#define MSG_REPLACE "Please, enter new combination"
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -77,62 +62,6 @@ static void MX_USART6_UART_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
-struct state {
-    long red_timeout;
-    uint32_t last_switch_time;
-    int is_interrupt_on;
-    int last_color;
-};
-
-void question() {
-    HAL_UART_Transmit(&huart6, MSG_REPLACE, strlen(MSG_REPLACE), DELAY);
-    HAL_UART_Transmit(&huart6, EOL, strlen(EOL), DELAY);
-}
-
-int should_set_color(struct state *current_state) {
-    long timeout = current_state->last_color == RED ? current_state->red_timeout : DEFAULT_TIMEOUT;
-    uint32_t current_tick = HAL_GetTick();
-    uint32_t current_time = current_tick / 1000;
-    uint32_t color_time_end = current_state->last_switch_time + timeout;
-    return current_time >= color_time_end;
-}
-
-void show_color(int color) {
-    switch (color) {
-        case GREEN:
-            HAL_GPIO_WritePin(GPIOD, YELLOW, GPIO_PIN_RESET);
-            HAL_GPIO_WritePin(GPIOD, RED, GPIO_PIN_RESET);
-            break;
-
-        case YELLOW:
-            HAL_GPIO_WritePin(GPIOD, GREEN, GPIO_PIN_RESET);
-            HAL_GPIO_WritePin(GPIOD, RED, GPIO_PIN_RESET);
-            break;
-        case RED:
-            HAL_GPIO_WritePin(GPIOD, YELLOW, GPIO_PIN_RESET);
-            HAL_GPIO_WritePin(GPIOD, GREEN, GPIO_PIN_RESET);
-            break;
-    }
-    HAL_GPIO_WritePin(GPIOD, color, GPIO_PIN_SET);
-}
-
-void set_next_color(const struct state *current_state) {
-    switch (current_state->last_color) {
-        case GREEN_STATE:
-            break;
-
-        case GREEN_BLINK_STATE:
-            break;
-
-        case YELLOW:
-            break;
-
-        case RED:
-            break;
-    }
-}
-
 /* USER CODE END 0 */
 
 /**
@@ -175,11 +104,16 @@ int main(void) {
             .red_timeout = DEFAULT_TIMEOUT,
             .last_switch_time = 0,
             .is_interrupt_on = 0,
-            .last_color = RED
+            .current_color = RED,
+            .to_blink = 0,
+            .prev_color = YELLOW,
+            .mode = 1,
+            .was_button_pressed = 0
     };
     while (1) {
+        check_button(&current_state);
         if (should_set_color(&current_state)) {
-            set_next_color(&current_state);
+            show_next_color(&current_state);
         }
         /* USER CODE END WHILE */
 
