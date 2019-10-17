@@ -5,16 +5,16 @@ cmake_minimum_required(VERSION 3.7)
 
 # specify cross compilers and tools
 SET(CMAKE_C_COMPILER_WORKS 1)
-SET(CMAKE_C_COMPILER arm-none-eabi-gcc.exe)
+SET(CMAKE_C_COMPILER arm-none-eabi-gcc)
 SET(CMAKE_CXX_COMPILER_WORKS 1)
-SET(CMAKE_CXX_COMPILER arm-none-eabi-g++.exe)
-set(CMAKE_ASM_COMPILER  arm-none-eabi-gcc.exe)
-set(CMAKE_AR arm-none-eabi-ar.exe)
-set(CMAKE_OBJCOPY arm-none-eabi-objcopy.exe)
-set(CMAKE_OBJDUMP arm-none-eabi-objdump.exe)
-set(SIZE arm-none-eabi-size.exe)
+SET(CMAKE_CXX_COMPILER arm-none-eabi-g++)
+set(CMAKE_ASM_COMPILER  arm-none-eabi-gcc)
+set(CMAKE_AR arm-none-eabi-ar)
+set(CMAKE_OBJCOPY arm-none-eabi-objcopy)
+set(CMAKE_OBJDUMP arm-none-eabi-objdump)
+set(SIZE arm-none-eabi-size)
 
-SET(LINKER_SCRIPT ${CMAKE_SOURCE_DIR}/STM32F407VGTx_FLASH.ld Src/solution.c Src/solution.h)
+SET(LINKER_SCRIPT ${CMAKE_SOURCE_DIR}/STM32F407VGTx_FLASH.ld)
 
 #Uncomment for hardware floating point
 #SET(FPU_FLAGS "-mfloat-abi=hard -mfpu=fpv4-sp-d16")
