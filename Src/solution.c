@@ -16,6 +16,10 @@ uint8_t is_button_pressed() {
     return HAL_GPIO_ReadPin(GPIOC, BUTTON) == GPIO_PIN_RESET;
 }
 
+void send(uint8_t *msg, UART_HandleTypeDef *uart) {
+    HAL_UART_Transmit(uart, msg, strlen((const char *) msg), DELAY);
+}
+
 void check_button(struct state *current_state) {
     if (current_state->mode == 1) {
         if (is_button_pressed())
@@ -23,9 +27,32 @@ void check_button(struct state *current_state) {
     }
 }
 
-void question(UART_HandleTypeDef *uart) {
-    HAL_UART_Transmit(uart, MSG_REPLACE, strlen(MSG_REPLACE), DELAY);
-    HAL_UART_Transmit(uart, EOL, strlen(EOL), DELAY);
+void on_question(UART_HandleTypeDef *uart, struct state *current_state) {
+    // TODO: create message
+    send(MSG_REPLACE, uart);
+    send(EOL, uart);
+}
+
+void on_buf(uint8_t *buf, uint16_t len, UART_HandleTypeDef *uart, struct state *current_state) {
+    if (len == 0)
+        return;
+
+    // TODO: determine input
+    if (strcmp((const char *) buf, "?") == 0) {
+        on_question(uart, current_state);
+    } else if (strncmp((const char *) buf, "set mode ", 9) == 0) {
+        if (buf[9] == '1') {
+            current_state->mode = 1;
+        } else if (buf[9] == '2') {
+            current_state->mode = 2;
+        } else {
+            // TODO: unknown input
+        }
+    } else {
+        // TODO: unknown input
+    }
+
+    // TODO: send echo
 }
 
 void show_color(uint16_t color, struct state *current_state) {
@@ -93,6 +120,24 @@ uint8_t should_set_color(const struct state *current_state) {
     return current_time >= color_switch_expected;
 }
 
-void check_input(struct state *current_state) {
+void check_input(UART_HandleTypeDef *uart, struct state *current_state) {
+    const int buf_size = 20; // TODO: "set interrupts off" - 18 chars, so 20 should be enough?
+    uint8_t buf[buf_size] = {0};
+    switch (HAL_UART_Receive(uart, buf, buf_size, DELAY)) {
+        case HAL_OK:
+            on_buf(buf, strlen((const char *) buf), uart, current_state);
+            break;
 
+        case HAL_BUSY:
+            // TODO: is there anything we can do?
+            break;
+
+        case HAL_TIMEOUT:
+            // TODO: is there anything we can do?
+            break;
+
+        case HAL_ERROR:
+            // TODO: is there anything we can do?
+            break;
+    }
 }

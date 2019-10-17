@@ -41,6 +41,6 @@ void show_next_color(struct state *current_state);
 
 void check_button(struct state *current_state);
 
-void check_input(struct state *current_state);
+void check_input(UART_HandleTypeDef *uart, struct state *current_state);
 
 #endif //EMBEDDEDSECOND_SOLUTION_H
