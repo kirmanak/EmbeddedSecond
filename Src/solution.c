@@ -92,3 +92,7 @@ uint8_t should_set_color(const struct state *current_state) {
 
     return current_time >= color_switch_expected;
 }
+
+void check_input(struct state *current_state) {
+
+}

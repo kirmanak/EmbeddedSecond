@@ -115,6 +115,7 @@ int main(void) {
         if (should_set_color(&current_state)) {
             show_next_color(&current_state);
         }
+        check_input(&current_state);
         /* USER CODE END WHILE */
 
         /* USER CODE BEGIN 3 */
