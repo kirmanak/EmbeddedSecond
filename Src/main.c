@@ -116,6 +116,8 @@ int main(void) {
             show_next_color(&current_state);
         }
         check_input(&current_state);
+        // TODO: do it in interrupts way
+        // TODO: prompt
         /* USER CODE END WHILE */
 
         /* USER CODE BEGIN 3 */

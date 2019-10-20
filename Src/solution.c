@@ -27,32 +27,87 @@ void check_button(struct state *current_state) {
     }
 }
 
-void on_question(UART_HandleTypeDef *uart, struct state *current_state) {
-    // TODO: create message
-    send(MSG_REPLACE, uart);
-    send(EOL, uart);
+void send_msg(uint8_t *buf, UART_HandleTypeDef *const uart) {
+    HAL_UART_Transmit(uart, buf, strlen((const char *) buf), DELAY);
+    HAL_UART_Transmit(uart, EOL, strlen((const char *) EOL), DELAY);
 }
 
-void on_buf(uint8_t *buf, uint16_t len, UART_HandleTypeDef *uart, struct state *current_state) {
+void on_question(UART_HandleTypeDef *uart, struct state *current_state) {
+    // TODO: create message
+    send_msg(MSG_REPLACE, uart);
+}
+
+bool starts_with(const char *const str, const char *const prefix) {
+    return strncmp(str, prefix, strlen(prefix)) == 0;
+}
+
+bool equals(const char *const str_one, const char *const str_two) {
+    return strcmp(str_one, str_two) == 0;
+}
+
+void send_echo(uint8_t *const buf, const uint16_t len, UART_HandleTypeDef *const uart) {
+    HAL_UART_Transmit(uart, buf, len, DELAY);
+}
+
+void send_error(UART_HandleTypeDef *const uart) {
+    char msg[] = "Malformed input!";
+    send_msg((uint8_t *) msg, uart);
+}
+
+bool on_set_mode(const uint8_t *const buf, struct state *const current_state) {
+    size_t mode_index = strlen("set mode ");
+    long mode = strtol((const char *) (buf + mode_index), NULL, 10);
+    if (mode < 1 || mode > 2 || errno == ERANGE) {
+        return false;
+    }
+
+    current_state->mode = (uint8_t) mode;
+    return true;
+}
+
+bool on_set_timeout(const uint8_t *const buf, struct state *const current_state) {
+    size_t timeout_index = strlen("set timeout ");
+    long timeout = strtol((const char *) (buf + timeout_index), NULL, 10);
+    if (timeout <= 0 || errno == ERANGE) {
+        return false;
+    }
+
+    current_state->red_timeout = (uint32_t) timeout;
+    return true;
+}
+
+bool on_set_interrupts(const uint8_t *const buf, struct state *const current_state) {
+    if (equals((const char *) buf, "set interrupts on")) {
+        current_state->is_interrupt_on = true;
+    } else if (equals((const char *) buf, "set interrupts off")) {
+        current_state->is_interrupt_on = false;
+    } else {
+        return false;
+    }
+
+    return true;
+}
+
+void on_buf(uint8_t *buf, const uint16_t len, UART_HandleTypeDef *uart, struct state *const current_state) {
+    send_echo(buf, len, uart);
+
     if (len == 0)
         return;
 
-    // TODO: determine input
-    if (strcmp((const char *) buf, "?") == 0) {
+    if (equals((const char *) buf, "?")) {
         on_question(uart, current_state);
-    } else if (strncmp((const char *) buf, "set mode ", 9) == 0) {
-        if (buf[9] == '1') {
-            current_state->mode = 1;
-        } else if (buf[9] == '2') {
-            current_state->mode = 2;
-        } else {
-            // TODO: unknown input
-        }
+    } else if (starts_with((const char *) buf, "set mode ")) {
+        if (!on_set_mode(buf, current_state))
+            send_error(uart);
+    } else if (starts_with((const char *) buf, "set timeout ")) {
+        if (!on_set_timeout(buf, current_state))
+            send_error(uart);
+    } else if (starts_with((const char *) buf, "set interrupts ")) {
+        if (!on_set_interrupts(buf, current_state))
+            send_error(uart);
     } else {
-        // TODO: unknown input
+        send_error(uart);
     }
-
-    // TODO: send echo
 }
 
 void show_color(uint16_t color, struct state *current_state) {
@@ -101,7 +156,7 @@ void show_next_color(struct state *current_state) {
     }
 }
 
-uint8_t should_set_color(const struct state *current_state) {
+bool should_set_color(const struct state *current_state) {
     uint32_t timeout;
 
     int current_color = current_state->current_color;
@@ -121,6 +176,7 @@ uint8_t should_set_color(const struct state *current_state) {
 }
 
 void check_input(UART_HandleTypeDef *uart, struct state *current_state) {
+    // TODO: what if echo?
     const int buf_size = 20; // TODO: "set interrupts off" - 18 chars, so 20 should be enough?
     uint8_t buf[buf_size] = {0};
     switch (HAL_UART_Receive(uart, buf, buf_size, DELAY)) {
@@ -129,13 +185,7 @@ void check_input(UART_HandleTypeDef *uart, struct state *current_state) {
             break;
 
         case HAL_BUSY:
-            // TODO: is there anything we can do?
-            break;
-
         case HAL_TIMEOUT:
-            // TODO: is there anything we can do?
-            break;
-
         case HAL_ERROR:
             // TODO: is there anything we can do?
             break;

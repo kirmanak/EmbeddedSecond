@@ -5,8 +5,11 @@
 #ifndef EMBEDDEDSECOND_SOLUTION_H
 #define EMBEDDEDSECOND_SOLUTION_H
 
+#include <errno.h>
+#include <stdlib.h>
 #include <stdint.h>
-#include<string.h>
+#include <string.h>
+#include <stdbool.h>
 #include <stm32f4xx_hal_conf.h>
 
 #define GREEN GPIO_PIN_13
@@ -27,15 +30,15 @@ uint8_t EOL[] = "\n\r";
 struct state {
     uint32_t red_timeout;
     uint32_t last_switch_time;
-    uint8_t is_interrupt_on;
+    bool is_interrupt_on;
     uint16_t current_color;
     uint16_t prev_color;
     uint8_t to_blink;
     uint8_t mode;
-    uint8_t was_button_pressed;
+    bool was_button_pressed;
 };
 
-uint8_t should_set_color(const struct state *);
+bool should_set_color(const struct state *);
 
 void show_next_color(struct state *current_state);
 
