@@ -29,18 +29,19 @@ void check_button(struct state *current_state) {
 
 void send_msg(uint8_t *buf, UART_HandleTypeDef *const uart) {
     HAL_UART_Transmit(uart, buf, strlen((const char *) buf), DELAY);
-    HAL_UART_Transmit(uart, EOL, strlen((const char *) EOL), DELAY);
+    HAL_UART_Transmit(uart, "\n\r", strlen((const char *) "\n\r"), DELAY);
 }
 
-const char *get_color(const struct state *const current_state) {
+char *get_color(const struct state *const current_state) {
     char *str = calloc(255, sizeof(char));
     char *text = current_state->current_color == RED ? "red" :
                  current_state->current_color == YELLOW ? "yellow" :
                  current_state->to_blink > 0 ? "blinking green" : "green";
     strcat(str, text);
+    return str;
 }
 
-const char *get_mode(const struct state *const current_state) {
+char *get_mode(const struct state *const current_state) {
     char *str = calloc(255, sizeof(char));
     strcat(str, "mode ");
     char number[10];
@@ -49,7 +50,7 @@ const char *get_mode(const struct state *const current_state) {
     return str;
 }
 
-const char *get_timeout(const struct state *const current_state) {
+char *get_timeout(const struct state *const current_state) {
     char *str = calloc(255, sizeof(char));
     strcat(str, "timeout "); // TODO size
     char number[10]; // TODO just because I can?
@@ -59,12 +60,16 @@ const char *get_timeout(const struct state *const current_state) {
 }
 
 void on_question(UART_HandleTypeDef *const uart, const struct state *const current_state) {
-    const char *const color = get_color(current_state);
-    const char *const mode = get_mode(current_state);
-    const char *const timeout = get_timeout(current_state);
+    char *const color = get_color(current_state);
+    char *const mode = get_mode(current_state);
+    char *const timeout = get_timeout(current_state);
 
     // TODO: create message
-    send_msg(MSG_REPLACE, uart);
+    send_msg("lol", uart);
+
+    free(color);
+    free(mode);
+    free(timeout);
 }
 
 bool starts_with(const char *const str, const char *const prefix) {

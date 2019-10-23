@@ -10,7 +10,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdbool.h>
-#include <stm32f4xx_hal_conf.h>
+#include <stm32f4xx_hal.h>
 
 #define GREEN GPIO_PIN_13
 #define YELLOW GPIO_PIN_14
@@ -24,8 +24,8 @@
 #define BLINK_COUNT 10
 #define BLINK_TIMEOUT 100
 
-uint8_t MSG_REPLACE[] = "Please, enter new combination";
-uint8_t EOL[] = "\n\r";
+// uint8_t MSG_REPLACE[] = "Please, enter new combination";
+// uint8_t EOL[] = "\n\r";
 
 struct state {
     uint32_t red_timeout;
