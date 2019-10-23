@@ -56,9 +56,9 @@ char *get_timeout(const struct state *const current_state) {
 }
 
 char *get_interrupt(const struct state *const current_state) {
-	char *str = calloc(255, sizeof(char));
-	strcat(str, current_state->is_interrupt_on ? "I" : "P");
-	return str;
+    char *str = calloc(255, sizeof(char));
+    strcat(str, current_state->is_interrupt_on ? "I" : "P");
+    return str;
 }
 
 void on_question(UART_HandleTypeDef *const uart, const struct state *const current_state) {
@@ -235,29 +235,29 @@ void check_input(UART_HandleTypeDef *uart, struct state *current_state) {
     uint8_t symbol[2] = {0};
     bool is_read = false;
     do {
-    	HAL_StatusTypeDef result = HAL_UART_Receive(uart, symbol, 1, DEFAULT_TIMEOUT);
-    	    switch (result) {
-    	        case HAL_OK:
-    	        	strcat((const char *) buf, (const char *) symbol);
-    	        	is_read = true;
-    	            break;
+        HAL_StatusTypeDef result = HAL_UART_Receive(uart, symbol, 1, DEFAULT_TIMEOUT);
+        switch (result) {
+            case HAL_OK:
+                strcat((const char *) buf, (const char *) symbol);
+                is_read = true;
+                break;
 
-    	        case HAL_BUSY:
-    	        case HAL_TIMEOUT:
-    	        case HAL_ERROR:
-    	            // TODO: is there anything we can do?
-    	        	is_read = false;
-    	        	break;
-    	    }
+            case HAL_BUSY:
+            case HAL_TIMEOUT:
+            case HAL_ERROR:
+                // TODO: is there anything we can do?
+                is_read = false;
+                break;
+        }
 
     } while (is_read);
     int len = strlen(buf);
     if (len > 0) {
-     on_buf((unsigned char *) buf, strlen((const char *) buf), uart, current_state);
+        on_buf((unsigned char *) buf, strlen((const char *) buf), uart, current_state);
     }
 }
 
 void send_prompt(UART_HandleTypeDef *uart) {
-	char prompt[] ="Enter command: ";
+    char prompt[] = "Enter command: ";
     HAL_UART_Transmit(uart, prompt, strlen((const char *) prompt), DEFAULT_TIMEOUT);
 }
