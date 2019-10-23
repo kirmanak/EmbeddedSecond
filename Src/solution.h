@@ -20,9 +20,9 @@
 #define BUTTON GPIO_PIN_15
 
 #define DELAY 1000
-#define DEFAULT_TIMEOUT 3000
+#define DEFAULT_TIMEOUT 50
 #define BLINK_COUNT 10
-#define BLINK_TIMEOUT 100
+#define BLINK_TIMEOUT 50
 
 // uint8_t MSG_REPLACE[] = "Please, enter new combination";
 // uint8_t EOL[] = "\n\r";
@@ -45,5 +45,7 @@ void show_next_color(struct state *current_state);
 void check_button(struct state *current_state);
 
 void check_input(UART_HandleTypeDef *uart, struct state *current_state);
+
+void send_prompt(UART_HandleTypeDef *uart);
 
 #endif //EMBEDDEDSECOND_SOLUTION_H

@@ -16,10 +16,6 @@ bool is_button_pressed() {
     return HAL_GPIO_ReadPin(GPIOC, BUTTON) == GPIO_PIN_RESET;
 }
 
-void send(uint8_t *const msg, UART_HandleTypeDef *const uart) {
-    HAL_UART_Transmit(uart, msg, strlen((const char *) msg), DELAY);
-}
-
 void check_button(struct state *current_state) {
     if (current_state->mode == 1) {
         if (is_button_pressed())
@@ -28,8 +24,8 @@ void check_button(struct state *current_state) {
 }
 
 void send_msg(uint8_t *buf, UART_HandleTypeDef *const uart) {
-    HAL_UART_Transmit(uart, buf, strlen((const char *) buf), DELAY);
-    HAL_UART_Transmit(uart, "\n\r", strlen((const char *) "\n\r"), DELAY);
+    HAL_UART_Transmit(uart, buf, strlen((const char *) buf), DEFAULT_TIMEOUT);
+    HAL_UART_Transmit(uart, "\n\r", strlen((const char *) "\n\r"), DEFAULT_TIMEOUT);
 }
 
 char *get_color(const struct state *const current_state) {
@@ -59,17 +55,36 @@ char *get_timeout(const struct state *const current_state) {
     return str;
 }
 
+char *get_interrupt(const struct state *const current_state) {
+	char *str = calloc(255, sizeof(char));
+	strcat(str, current_state->is_interrupt_on ? "I" : "P");
+	return str;
+}
+
 void on_question(UART_HandleTypeDef *const uart, const struct state *const current_state) {
     char *const color = get_color(current_state);
     char *const mode = get_mode(current_state);
     char *const timeout = get_timeout(current_state);
+    char *const interrupt = get_interrupt(current_state);
+
+    char *result = calloc(1024, sizeof(char));
+
+    strcat(result, color);
+    strcat(result, "\n\r");
+    strcat(result, mode);
+    strcat(result, "\n\r");
+    strcat(result, timeout);
+    strcat(result, "\n\r");
+    strcat(result, interrupt);
 
     // TODO: create message
-    send_msg("lol", uart);
+    send_msg((uint8_t *) result, uart);
 
+    free(result);
     free(color);
     free(mode);
     free(timeout);
+    free(interrupt);
 }
 
 bool starts_with(const char *const str, const char *const prefix) {
@@ -81,7 +96,7 @@ bool equals(const char *const str_one, const char *const str_two) {
 }
 
 void send_echo(uint8_t *const buf, const uint16_t len, UART_HandleTypeDef *const uart) {
-    HAL_UART_Transmit(uart, buf, len, DELAY);
+    HAL_UART_Transmit(uart, buf, len, DEFAULT_TIMEOUT);
 }
 
 void send_error(UART_HandleTypeDef *const uart) {
@@ -143,17 +158,21 @@ void on_buf(uint8_t *buf, const uint16_t len, UART_HandleTypeDef *uart, struct s
     } else {
         send_error(uart);
     }
+
+    send_prompt(uart);
+    free(buf);
 }
 
 void show_color(uint16_t color, struct state *current_state) {
+    current_state->prev_color = current_state->current_color;
+    current_state->current_color = color;
+    current_state->last_switch_time = HAL_GetTick();
+
     if (current_state->prev_color != OFF)
         switch_off(current_state->prev_color);
 
     if (color != OFF)
         switch_on(color);
-
-    current_state->prev_color = current_state->current_color;
-    current_state->current_color = color;
 }
 
 void handle_blink(struct state *current_state) {
@@ -200,11 +219,10 @@ bool should_set_color(const struct state *current_state) {
     if (current_color == RED) {
         timeout = current_state->was_button_pressed ? current_state->red_timeout / 4 : current_state->red_timeout;
     } else {
-        timeout = is_blinking ? BLINK_TIMEOUT : DEFAULT_TIMEOUT;
+        timeout = is_blinking ? BLINK_TIMEOUT : DELAY;
     }
 
-    uint32_t current_tick = HAL_GetTick();
-    uint32_t current_time = current_tick;
+    uint32_t current_time = HAL_GetTick();
     uint32_t color_switch_expected = current_state->last_switch_time + timeout;
 
     return current_time >= color_switch_expected;
@@ -213,16 +231,33 @@ bool should_set_color(const struct state *current_state) {
 void check_input(UART_HandleTypeDef *uart, struct state *current_state) {
     // TODO: what if echo to our msg?
     const int buf_size = 255; // TODO: just because I can
-    char *buf = calloc(buf_size, sizeof(char));
-    switch (HAL_UART_Receive(uart, (unsigned char *) buf, buf_size, DELAY)) {
-        case HAL_OK:
-            on_buf((unsigned char *) buf, strlen((const char *) buf), uart, current_state);
-            break;
+    uint8_t *buf = calloc(buf_size, sizeof(uint8_t));
+    uint8_t symbol[2] = {0};
+    bool is_read = false;
+    do {
+    	HAL_StatusTypeDef result = HAL_UART_Receive(uart, symbol, 1, DEFAULT_TIMEOUT);
+    	    switch (result) {
+    	        case HAL_OK:
+    	        	strcat((const char *) buf, (const char *) symbol);
+    	        	is_read = true;
+    	            break;
 
-        case HAL_BUSY:
-        case HAL_TIMEOUT:
-        case HAL_ERROR:
-            // TODO: is there anything we can do?
-            break;
+    	        case HAL_BUSY:
+    	        case HAL_TIMEOUT:
+    	        case HAL_ERROR:
+    	            // TODO: is there anything we can do?
+    	        	is_read = false;
+    	        	break;
+    	    }
+
+    } while (is_read);
+    int len = strlen(buf);
+    if (len > 0) {
+     on_buf((unsigned char *) buf, strlen((const char *) buf), uart, current_state);
     }
+}
+
+void send_prompt(UART_HandleTypeDef *uart) {
+	char prompt[] ="Enter command: ";
+    HAL_UART_Transmit(uart, prompt, strlen((const char *) prompt), DEFAULT_TIMEOUT);
 }
