@@ -4,19 +4,19 @@
 
 #include "solution.h"
 
-void switch_off(uint16_t color) {
+void switch_off(const uint16_t color) {
     HAL_GPIO_WritePin(GPIOD, color, GPIO_PIN_RESET);
 }
 
-void switch_on(uint16_t color) {
+void switch_on(const uint16_t color) {
     HAL_GPIO_WritePin(GPIOD, color, GPIO_PIN_SET);
 }
 
-uint8_t is_button_pressed() {
+bool is_button_pressed() {
     return HAL_GPIO_ReadPin(GPIOC, BUTTON) == GPIO_PIN_RESET;
 }
 
-void send(uint8_t *msg, UART_HandleTypeDef *uart) {
+void send(uint8_t *const msg, UART_HandleTypeDef *const uart) {
     HAL_UART_Transmit(uart, msg, strlen((const char *) msg), DELAY);
 }
 
@@ -32,7 +32,37 @@ void send_msg(uint8_t *buf, UART_HandleTypeDef *const uart) {
     HAL_UART_Transmit(uart, EOL, strlen((const char *) EOL), DELAY);
 }
 
-void on_question(UART_HandleTypeDef *uart, struct state *current_state) {
+const char *get_color(const struct state *const current_state) {
+    char *str = calloc(255, sizeof(char));
+    char *text = current_state->current_color == RED ? "red" :
+                 current_state->current_color == YELLOW ? "yellow" :
+                 current_state->to_blink > 0 ? "blinking green" : "green";
+    strcat(str, text);
+}
+
+const char *get_mode(const struct state *const current_state) {
+    char *str = calloc(255, sizeof(char));
+    strcat(str, "mode ");
+    char number[10];
+    itoa(current_state->mode, number, 10);
+    strcat(str, number);
+    return str;
+}
+
+const char *get_timeout(const struct state *const current_state) {
+    char *str = calloc(255, sizeof(char));
+    strcat(str, "timeout "); // TODO size
+    char number[10]; // TODO just because I can?
+    itoa(current_state->last_switch_time, number, 10);
+    strcat(str, number);
+    return str;
+}
+
+void on_question(UART_HandleTypeDef *const uart, const struct state *const current_state) {
+    const char *const color = get_color(current_state);
+    const char *const mode = get_mode(current_state);
+    const char *const timeout = get_timeout(current_state);
+
     // TODO: create message
     send_msg(MSG_REPLACE, uart);
 }
@@ -176,12 +206,12 @@ bool should_set_color(const struct state *current_state) {
 }
 
 void check_input(UART_HandleTypeDef *uart, struct state *current_state) {
-    // TODO: what if echo?
-    const int buf_size = 20; // TODO: "set interrupts off" - 18 chars, so 20 should be enough?
-    uint8_t buf[buf_size] = {0};
-    switch (HAL_UART_Receive(uart, buf, buf_size, DELAY)) {
+    // TODO: what if echo to our msg?
+    const int buf_size = 255; // TODO: just because I can
+    char *buf = calloc(buf_size, sizeof(char));
+    switch (HAL_UART_Receive(uart, (unsigned char *) buf, buf_size, DELAY)) {
         case HAL_OK:
-            on_buf(buf, strlen((const char *) buf), uart, current_state);
+            on_buf((unsigned char *) buf, strlen((const char *) buf), uart, current_state);
             break;
 
         case HAL_BUSY:

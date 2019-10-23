@@ -110,18 +110,21 @@ int main(void) {
             .mode = 1,
             .was_button_pressed = 0
     };
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-noreturn"
     while (1) {
         check_button(&current_state);
         if (should_set_color(&current_state)) {
             show_next_color(&current_state);
         }
-        check_input(&current_state);
+        check_input(&huart6, &current_state);
         // TODO: do it in interrupts way
         // TODO: prompt
         /* USER CODE END WHILE */
 
         /* USER CODE BEGIN 3 */
     }
+#pragma clang diagnostic pop
     /* USER CODE END 3 */
 }
 
