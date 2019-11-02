@@ -107,6 +107,8 @@ int main(void)
     };
 
     send_prompt(&huart6);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-noreturn"
     while (1) {
         check_button(&current_state);
         if (should_set_color(&current_state)) {
