@@ -24,9 +24,6 @@
 #define BLINK_COUNT 10
 #define BLINK_TIMEOUT 1000
 
-// uint8_t MSG_REPLACE[] = "Please, enter new combination";
-// uint8_t EOL[] = "\n\r";
-
 struct state {
     uint32_t red_timeout;
     uint32_t last_switch_time;
