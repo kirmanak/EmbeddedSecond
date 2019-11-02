@@ -25,7 +25,7 @@ void check_button(struct state *current_state) {
 
 void send_msg(uint8_t *buf, UART_HandleTypeDef *const uart) {
     HAL_UART_Transmit(uart, buf, strlen((const char *) buf), DEFAULT_TIMEOUT);
-    HAL_UART_Transmit(uart, "\n\r", strlen((const char *) "\n\r"), DEFAULT_TIMEOUT);
+    HAL_UART_Transmit(uart, (unsigned char *) "\n\r", strlen((const char *) "\n\r"), DEFAULT_TIMEOUT);
 }
 
 char *get_color(const struct state *const current_state) {
@@ -233,25 +233,26 @@ void check_input(UART_HandleTypeDef *uart, struct state *current_state) {
     const int buf_size = 255; // TODO: just because I can
     uint8_t *buf = calloc(buf_size, sizeof(uint8_t));
     uint8_t symbol[2] = {0};
-    bool is_read = false;
+    bool is_read;
     do {
         HAL_StatusTypeDef result = HAL_UART_Receive(uart, symbol, 1, DEFAULT_TIMEOUT);
         switch (result) {
             case HAL_OK:
-                strcat((const char *) buf, (const char *) symbol);
+                strcat((char *) buf, (const char *) symbol);
                 is_read = true;
                 break;
 
             case HAL_BUSY:
             case HAL_TIMEOUT:
             case HAL_ERROR:
+            default:
                 // TODO: is there anything we can do?
                 is_read = false;
                 break;
         }
 
     } while (is_read);
-    int len = strlen(buf);
+    unsigned int len = strlen((const char *) buf);
     if (len > 0) {
         on_buf((unsigned char *) buf, strlen((const char *) buf), uart, current_state);
     }
@@ -259,5 +260,5 @@ void check_input(UART_HandleTypeDef *uart, struct state *current_state) {
 
 void send_prompt(UART_HandleTypeDef *uart) {
     char prompt[] = "Enter command: ";
-    HAL_UART_Transmit(uart, prompt, strlen((const char *) prompt), DEFAULT_TIMEOUT);
+    HAL_UART_Transmit(uart, (unsigned char *) prompt, strlen((const char *) prompt), DEFAULT_TIMEOUT);
 }
