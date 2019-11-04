@@ -24,7 +24,7 @@
 #define BLINK_COUNT 10
 #define BLINK_TIMEOUT 1000
 
-struct state {
+typedef struct state {
     uint32_t red_timeout;
     uint32_t last_switch_time;
     bool is_interrupt_on;
@@ -33,15 +33,15 @@ struct state {
     uint8_t to_blink;
     uint8_t mode;
     bool was_button_pressed;
-};
+} state;
 
-bool should_set_color(const struct state *);
+bool should_set_color(const state *);
 
-void show_next_color(struct state *current_state);
+void show_next_color(state *current_state);
 
-void check_button(struct state *current_state);
+void check_button(state *current_state);
 
-void check_input(UART_HandleTypeDef *uart, struct state *current_state);
+void check_input(UART_HandleTypeDef *uart, state *current_state);
 
 void send_prompt(UART_HandleTypeDef *uart);
 

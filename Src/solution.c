@@ -4,6 +4,10 @@
 
 #include "solution.h"
 
+state *rx_state = NULL;
+unsigned char rx_buffer[255] = {0};
+unsigned char rx_symbol[2] = {0};
+
 void switch_off(const uint16_t color) {
     HAL_GPIO_WritePin(GPIOD, color, GPIO_PIN_RESET);
 }
@@ -12,11 +16,19 @@ void switch_on(const uint16_t color) {
     HAL_GPIO_WritePin(GPIOD, color, GPIO_PIN_SET);
 }
 
+void set_interrupts_on(UART_HandleTypeDef *huart, state *current_state) {
+    if (current_state == NULL)
+        return;
+
+    rx_state = current_state;
+    HAL_UART_Receive_IT(huart, rx_symbol, 1);
+}
+
 bool is_button_pressed() {
     return HAL_GPIO_ReadPin(GPIOC, BUTTON) == GPIO_PIN_RESET;
 }
 
-void check_button(struct state *current_state) {
+void check_button(state *current_state) {
     if (current_state->mode == 1) {
         if (is_button_pressed())
             current_state->was_button_pressed = 1;
@@ -28,7 +40,7 @@ void send_msg(uint8_t *buf, UART_HandleTypeDef *const uart) {
     HAL_UART_Transmit(uart, (unsigned char *) "\n\r", strlen((const char *) "\n\r"), DEFAULT_TIMEOUT);
 }
 
-char *get_color(const struct state *const current_state) {
+char *get_color(const state *const current_state) {
     char *str = calloc(255, sizeof(char));
     char *text = current_state->current_color == RED ? "red" :
                  current_state->current_color == YELLOW ? "yellow" :
@@ -37,7 +49,7 @@ char *get_color(const struct state *const current_state) {
     return str;
 }
 
-char *get_mode(const struct state *const current_state) {
+char *get_mode(const state *const current_state) {
     char *str = calloc(255, sizeof(char));
     strcat(str, "mode ");
     char number[10];
@@ -46,7 +58,7 @@ char *get_mode(const struct state *const current_state) {
     return str;
 }
 
-char *get_timeout(const struct state *const current_state) {
+char *get_timeout(const state *const current_state) {
     char *str = calloc(255, sizeof(char));
     strcat(str, "timeout "); // TODO size
     char number[10]; // TODO just because I can?
@@ -55,13 +67,13 @@ char *get_timeout(const struct state *const current_state) {
     return str;
 }
 
-char *get_interrupt(const struct state *const current_state) {
+char *get_interrupt(const state *const current_state) {
     char *str = calloc(255, sizeof(char));
     strcat(str, current_state->is_interrupt_on ? "I" : "P");
     return str;
 }
 
-void on_question(UART_HandleTypeDef *const uart, const struct state *const current_state) {
+void on_question(UART_HandleTypeDef *const uart, const state *const current_state) {
     char *const color = get_color(current_state);
     char *const mode = get_mode(current_state);
     char *const timeout = get_timeout(current_state);
@@ -104,7 +116,7 @@ void send_error(UART_HandleTypeDef *const uart) {
     send_msg((uint8_t *) msg, uart);
 }
 
-bool on_set_mode(const uint8_t *const buf, struct state *const current_state) {
+bool on_set_mode(const uint8_t *const buf, state *const current_state) {
     size_t mode_index = strlen("set mode ");
     long mode = strtol((const char *) (buf + mode_index), NULL, 10);
     if (mode < 1 || mode > 2 || errno == ERANGE) {
@@ -115,7 +127,7 @@ bool on_set_mode(const uint8_t *const buf, struct state *const current_state) {
     return true;
 }
 
-bool on_set_timeout(const uint8_t *const buf, struct state *const current_state) {
+bool on_set_timeout(const uint8_t *const buf, state *const current_state) {
     size_t timeout_index = strlen("set timeout ");
     long timeout = strtol((const char *) (buf + timeout_index), NULL, 10);
     if (timeout <= 0 || errno == ERANGE) {
@@ -126,11 +138,13 @@ bool on_set_timeout(const uint8_t *const buf, struct state *const current_state)
     return true;
 }
 
-bool on_set_interrupts(const uint8_t *const buf, struct state *const current_state) {
+bool on_set_interrupts(UART_HandleTypeDef *const uart, const uint8_t *const buf, state *const current_state) {
     if (equals((const char *) buf, "set interrupts on")) {
         current_state->is_interrupt_on = true;
+        set_interrupts_on(uart, current_state);
     } else if (equals((const char *) buf, "set interrupts off")) {
         current_state->is_interrupt_on = false;
+        // TODO should disable?
     } else {
         return false;
     }
@@ -138,7 +152,7 @@ bool on_set_interrupts(const uint8_t *const buf, struct state *const current_sta
     return true;
 }
 
-void on_buf(uint8_t *buf, const uint16_t len, UART_HandleTypeDef *uart, struct state *const current_state) {
+void on_buf(uint8_t *buf, const uint16_t len, UART_HandleTypeDef *uart, state *const current_state) {
     send_echo(buf, len, uart);
 
     if (len == 0)
@@ -153,17 +167,16 @@ void on_buf(uint8_t *buf, const uint16_t len, UART_HandleTypeDef *uart, struct s
         if (!on_set_timeout(buf, current_state))
             send_error(uart);
     } else if (starts_with((const char *) buf, "set interrupts ")) {
-        if (!on_set_interrupts(buf, current_state))
+        if (!on_set_interrupts(uart, buf, current_state))
             send_error(uart);
     } else {
         send_error(uart);
     }
 
     send_prompt(uart);
-    free(buf);
 }
 
-void show_color(uint16_t color, struct state *current_state) {
+void show_color(uint16_t color, state *current_state) {
     current_state->prev_color = current_state->current_color;
     current_state->current_color = color;
     current_state->last_switch_time = HAL_GetTick();
@@ -175,7 +188,7 @@ void show_color(uint16_t color, struct state *current_state) {
         switch_on(color);
 }
 
-void handle_blink(struct state *current_state) {
+void handle_blink(state *current_state) {
     if (current_state->to_blink > 0) {
         show_color(current_state->current_color == GREEN ? OFF : GREEN, current_state);
         current_state->to_blink--;
@@ -184,7 +197,7 @@ void handle_blink(struct state *current_state) {
     }
 }
 
-void show_next_color(struct state *current_state) {
+void show_next_color(state *current_state) {
     switch (current_state->current_color) {
         case OFF:
             handle_blink(current_state);
@@ -210,7 +223,7 @@ void show_next_color(struct state *current_state) {
     }
 }
 
-bool should_set_color(const struct state *current_state) {
+bool should_set_color(const state *current_state) {
     uint32_t timeout;
 
     int current_color = current_state->current_color;
@@ -228,10 +241,25 @@ bool should_set_color(const struct state *current_state) {
     return current_time >= color_switch_expected;
 }
 
-void check_input(UART_HandleTypeDef *uart, struct state *current_state) {
+/**
+  * @brief  Rx Transfer completed callbacks.
+  * @param  huart  Pointer to a UART_HandleTypeDef structure that contains
+  *                the configuration information for the specified UART module.
+  * @retval None
+  */
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
+    if (equals((const char *) rx_symbol, "\n")) {
+        on_buf(rx_buffer, strlen((const char *) rx_buffer), huart, rx_state);
+    } else {
+        strcat((char *) rx_buffer, (const char *) rx_symbol);
+    }
+    set_interrupts_on(huart, rx_state);
+}
+
+void check_input(UART_HandleTypeDef *uart, state *current_state) {
     // TODO: what if echo to our msg?
     const int buf_size = 255; // TODO: just because I can
-    uint8_t *buf = calloc(buf_size, sizeof(uint8_t));
+    uint8_t buf[buf_size] = {0};
     uint8_t symbol[2] = {0};
     bool is_read;
     do {

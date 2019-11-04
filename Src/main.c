@@ -95,7 +95,7 @@ int main(void) {
 
     /* Infinite loop */
     /* USER CODE BEGIN WHILE */
-    struct state current_state = {
+    state current_state = {
             .red_timeout = DELAY,
             .last_switch_time = 0,
             .is_interrupt_on = false,
@@ -114,7 +114,8 @@ int main(void) {
         if (should_set_color(&current_state)) {
             show_next_color(&current_state);
         }
-        check_input(&huart6, &current_state);
+        if (!current_state.is_interrupt_on)
+            check_input(&huart6, &current_state);
         // TODO: do it in interrupts way
         // TODO: prompt
         /* USER CODE END WHILE */
