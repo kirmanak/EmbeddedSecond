@@ -4,9 +4,6 @@
 
 #include "solution.h"
 
-state *rx_state = NULL;
-unsigned char rx_buffer[255] = {0};
-unsigned char rx_symbol[2] = {0};
 
 void switch_off(const uint16_t color) {
     HAL_GPIO_WritePin(GPIOD, color, GPIO_PIN_RESET);
@@ -16,12 +13,17 @@ void switch_on(const uint16_t color) {
     HAL_GPIO_WritePin(GPIOD, color, GPIO_PIN_SET);
 }
 
-void set_interrupts_on(UART_HandleTypeDef *huart, state *current_state) {
+void set_interrupts_on(UART_HandleTypeDef *huart, unsigned char *rx_symbol, state *current_state) {
     if (current_state == NULL)
         return;
 
-    rx_state = current_state;
-    HAL_UART_Receive_IT(huart, rx_symbol, 1);
+    HAL_StatusTypeDef result = HAL_UART_Receive_IT(huart, rx_symbol, 1);
+    /* unsigned char buf[255] = {0};
+    unsigned char number[10] = {0};
+    itoa(result, number, 10);
+    strcat(buf, "\nResult is ");
+    strcat(buf, number);
+    send_msg(buf, huart); */
 }
 
 bool is_button_pressed() {
@@ -36,6 +38,7 @@ void check_button(state *current_state) {
 }
 
 void send_msg(uint8_t *buf, UART_HandleTypeDef *const uart) {
+	HAL_UART_Transmit(uart, (unsigned char *) "\n\r", strlen((const char *) "\n\r"), DEFAULT_TIMEOUT);
     HAL_UART_Transmit(uart, buf, strlen((const char *) buf), DEFAULT_TIMEOUT);
     HAL_UART_Transmit(uart, (unsigned char *) "\n\r", strlen((const char *) "\n\r"), DEFAULT_TIMEOUT);
 }
@@ -62,7 +65,7 @@ char *get_timeout(const state *const current_state) {
     char *str = calloc(255, sizeof(char));
     strcat(str, "timeout "); // TODO size
     char number[10]; // TODO just because I can?
-    itoa(current_state->last_switch_time, number, 10);
+    itoa(HAL_GetTick() - current_state->last_switch_time, number, 10);
     strcat(str, number);
     return str;
 }
@@ -138,10 +141,10 @@ bool on_set_timeout(const uint8_t *const buf, state *const current_state) {
     return true;
 }
 
-bool on_set_interrupts(UART_HandleTypeDef *const uart, const uint8_t *const buf, state *const current_state) {
+bool on_set_interrupts(UART_HandleTypeDef *const uart, const uint8_t *const buf, state *const current_state, unsigned char *rx_symbol) {
     if (equals((const char *) buf, "set interrupts on")) {
         current_state->is_interrupt_on = true;
-        set_interrupts_on(uart, current_state);
+        set_interrupts_on(uart, current_state, rx_symbol);
     } else if (equals((const char *) buf, "set interrupts off")) {
         current_state->is_interrupt_on = false;
         // TODO should disable?
@@ -152,7 +155,7 @@ bool on_set_interrupts(UART_HandleTypeDef *const uart, const uint8_t *const buf,
     return true;
 }
 
-void on_buf(uint8_t *buf, const uint16_t len, UART_HandleTypeDef *uart, state *const current_state) {
+void on_buf(uint8_t *buf, const uint16_t len, UART_HandleTypeDef *uart, state *const current_state, unsigned char *rx_symbol) {
     send_echo(buf, len, uart);
 
     if (len == 0)
@@ -167,7 +170,7 @@ void on_buf(uint8_t *buf, const uint16_t len, UART_HandleTypeDef *uart, state *c
         if (!on_set_timeout(buf, current_state))
             send_error(uart);
     } else if (starts_with((const char *) buf, "set interrupts ")) {
-        if (!on_set_interrupts(uart, buf, current_state))
+        if (!on_set_interrupts(uart, buf, current_state, rx_symbol))
             send_error(uart);
     } else {
         send_error(uart);
@@ -241,33 +244,22 @@ bool should_set_color(const state *current_state) {
     return current_time >= color_switch_expected;
 }
 
-/**
-  * @brief  Rx Transfer completed callbacks.
-  * @param  huart  Pointer to a UART_HandleTypeDef structure that contains
-  *                the configuration information for the specified UART module.
-  * @retval None
-  */
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-    if (equals((const char *) rx_symbol, "\n")) {
-        on_buf(rx_buffer, strlen((const char *) rx_buffer), huart, rx_state);
-    } else {
-        strcat((char *) rx_buffer, (const char *) rx_symbol);
-    }
-    set_interrupts_on(huart, rx_state);
-}
-
-void check_input(UART_HandleTypeDef *uart, state *current_state) {
+void check_input(UART_HandleTypeDef *uart, state *current_state, unsigned char *rx_symbol) {
     // TODO: what if echo to our msg?
-    const int buf_size = 255; // TODO: just because I can
-    uint8_t buf[buf_size] = {0};
+    // const int buf_size = 255; // TODO: just because I can
+    uint8_t buf[255] = {0};
     uint8_t symbol[2] = {0};
     bool is_read;
     do {
         HAL_StatusTypeDef result = HAL_UART_Receive(uart, symbol, 1, DEFAULT_TIMEOUT);
         switch (result) {
             case HAL_OK:
-                strcat((char *) buf, (const char *) symbol);
-                is_read = true;
+            	if (equals(symbol, "\n")) {
+            		is_read = false;
+            	} else {
+            		is_read = true;
+            		strcat((char *) buf, (const char *) symbol);
+            	}
                 break;
 
             case HAL_BUSY:
@@ -282,11 +274,12 @@ void check_input(UART_HandleTypeDef *uart, state *current_state) {
     } while (is_read);
     unsigned int len = strlen((const char *) buf);
     if (len > 0) {
-        on_buf((unsigned char *) buf, strlen((const char *) buf), uart, current_state);
+        on_buf((unsigned char *) buf, strlen((const char *) buf), uart, current_state, rx_symbol);
     }
 }
 
 void send_prompt(UART_HandleTypeDef *uart) {
     char prompt[] = "Enter command: ";
+    HAL_UART_Transmit(uart, (unsigned char *) "\n\r", strlen((const char *) "\n\r"), DEFAULT_TIMEOUT);
     HAL_UART_Transmit(uart, (unsigned char *) prompt, strlen((const char *) prompt), DEFAULT_TIMEOUT);
 }

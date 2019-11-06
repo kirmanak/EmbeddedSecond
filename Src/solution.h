@@ -19,10 +19,10 @@
 
 #define BUTTON GPIO_PIN_15
 
-#define DELAY 5000
-#define DEFAULT_TIMEOUT 50
+#define DELAY 2000
+#define DEFAULT_TIMEOUT 15
 #define BLINK_COUNT 10
-#define BLINK_TIMEOUT 1000
+#define BLINK_TIMEOUT 200
 
 typedef struct state {
     uint32_t red_timeout;
@@ -41,8 +41,10 @@ void show_next_color(state *current_state);
 
 void check_button(state *current_state);
 
-void check_input(UART_HandleTypeDef *uart, state *current_state);
+void check_input(UART_HandleTypeDef *uart, state *current_state, unsigned char *);
 
 void send_prompt(UART_HandleTypeDef *uart);
+
+void send_msg(uint8_t *buf, UART_HandleTypeDef *const uart);
 
 #endif //EMBEDDEDSECOND_SOLUTION_H
